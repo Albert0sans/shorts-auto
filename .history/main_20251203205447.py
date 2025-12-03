@@ -163,6 +163,7 @@ def createShortsJob(request):
         try:
             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running")
         except Exception as e: 
+            print(f"error {e}")
             pass 
 
         user_ref = db.collection('users').document(user_id)
@@ -303,8 +304,8 @@ def createShortsJob(request):
             final_status = "completed" if successful_videos == total_reserved_videos else "failed"
             if successful_videos > 0 and successful_videos < total_reserved_videos:
                  final_status = "completed" 
-            failed_message=f"{total_reserved_videos - successful_videos} Failed videos"
-            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status,status_msg=failed_message)
+
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status)
 
         except Exception as credit_error:
             return jsonify({"error": "Internal Server Error during Credit Adjustment", "details": str(credit_error)}), 500, headers
@@ -330,7 +331,7 @@ def createShortsJob(request):
                 transaction_refund = db.transaction()
                 refund_credits_transaction(transaction_refund, user_ref, video_credits=total_reserved_videos, image_credits=0, text_credits=0)
                 if short_build_id:
-                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",statusMessage=e)
+                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed")
             except Exception as refund_error:
                 print(f"CRITICAL: Failed to refund credits after error: {refund_error}")
 

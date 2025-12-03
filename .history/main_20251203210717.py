@@ -304,7 +304,7 @@ def createShortsJob(request):
             if successful_videos > 0 and successful_videos < total_reserved_videos:
                  final_status = "completed" 
             failed_message=f"{total_reserved_videos - successful_videos} Failed videos"
-            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status,status_msg=failed_message)
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status)
 
         except Exception as credit_error:
             return jsonify({"error": "Internal Server Error during Credit Adjustment", "details": str(credit_error)}), 500, headers
