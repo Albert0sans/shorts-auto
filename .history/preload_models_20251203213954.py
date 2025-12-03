@@ -5,6 +5,7 @@ import os
 def preload():
     print("--- Preloading Models for Cloud Run Persistence ---")
     
+    # Force CPU for the build process to avoid CUDA errors if building in an environment without GPU
     device = "cpu"
     compute_type = "int8"
 
@@ -23,8 +24,11 @@ def preload():
         except Exception as e:
             print(f"Error downloading {model_name}: {e}")
         
+        # Free up memory immediately after download
         gc.collect()
 
+    # 2. Download Alignment Models
+    # These are used for word-level timestamps
     alignment_languages = ["en", "es"]
     
     print("Downloading Alignment Models (wav2vec2)...")
