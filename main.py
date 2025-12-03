@@ -3,7 +3,6 @@ import shutil
 import uuid
 import tempfile
 import contextlib
-from hashlib import sha1
 import functions_framework
 from flask import jsonify
 import firebase_admin
@@ -132,7 +131,6 @@ def createShortsJob(request):
             download_video, 
             create_viral_segments, 
             cut_segments, 
-            edit_video, 
             transcribe_cuts, 
             adjust_subtitles, 
             burn_subtitles
@@ -236,9 +234,9 @@ def createShortsJob(request):
                         continue
 
                     cut_segments.cut(viral_data["segments"])
-                    edit_video.editv2(aspectRatio=aspect_ratio)
                     
-                    transcribe_cuts.transcribe()
+                    transcribe_cuts.transcribe(input_folder='tmp', output_folder='subs')
+                    
                     adjust_subtitles.adjust(
                         STYLE_CONFIG['base_color'], STYLE_CONFIG['base_size'], STYLE_CONFIG['h_size'], 
                         STYLE_CONFIG['highlight_color'], STYLE_CONFIG['palavras_por_bloco'], 
@@ -252,7 +250,8 @@ def createShortsJob(request):
                         optional_header=optional_header, 
                         segments=viral_data["segments"], 
                         font_size=100, 
-                        channel_name=watermark_text
+                        channel_name=watermark_text,
+                        aspect_ratio=aspect_ratio
                     )
 
                     generated_count_for_url = 0

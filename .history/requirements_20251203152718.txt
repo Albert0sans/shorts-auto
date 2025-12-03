@@ -1,9 +1,0 @@
-whisperx==3.7.4
-firebase-admin
-firebase-functions
-google-cloud-tasks
-google-auth
-requests
-functions-framework
-google-genai
-
