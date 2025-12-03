@@ -16,8 +16,7 @@ def transcribe():
     for filename in os.listdir(input_folder):
         if filename.endswith('.mp4'):  # Filtra apenas arquivos .mp4
             input_file = os.path.join(input_folder, filename)
-            print(input_file)
-            generate_whisperx(input_file, output_folder,model="medium")
+            generate_whisperx(input_file, output_folder)
 
 
 

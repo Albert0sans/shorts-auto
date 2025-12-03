@@ -1,3 +1,4 @@
+import torch
 import whisperx
 import os
 import csv
@@ -8,8 +9,7 @@ import torch
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-def generate_whisperx(input_file, output_folder, compute_type='int8'):
-    model_name = os.getenv('WHISPER_MODEL_NAME', 'tiny')
+def generate_whisperx(input_file, output_folder, model_name='tiny', compute_type='int8'):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     base_name = os.path.splitext(os.path.basename(input_file))[0]

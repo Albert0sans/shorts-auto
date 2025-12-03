@@ -2,5 +2,7 @@
 __pycache__/
 
 # Python virtual environment
+vev/
 venv/
 *.local
+./history

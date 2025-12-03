@@ -1,42 +1,8 @@
 import json
 import os
-
-import ollama
-
-def ask_local_gemma(prompt: str) -> str:
-    """
-    Sends a prompt to the local Gemma model using Ollama and returns the response.
-
-    Args:
-        prompt: The question or instruction for the model.
-
-    Returns:
-        A string containing the model's generated answer.
-        Returns an error message if the connection fails.
-    """
-    try:
-        # The ollama.chat function sends a request to the local model
-        response = ollama.chat(
-            model='gemma3:1b',  # Specifies which model to use
-            messages=[
-                {
-                    'role': 'user',
-                    'content': prompt,
-                },
-            ]
-        )
-  
-        # Extract and return the content from the response
-        return response['message']['content']
-    except Exception as e:
-        # Handle cases where the Ollama server is not running or other errors
-        return f"An error occurred: {e}"
-    
-    
 import os
 from google import genai
 from google.genai.errors import APIError # Import for better error handling
-
 
 
 def ask_gemini_flash_2_5(client,prompt: str) -> str:
@@ -80,7 +46,7 @@ def ask_gemini_flash_2_5(client,prompt: str) -> str:
         return f"An unexpected error occurred: {e}"
 
     
-def create_viral_segments(num_segments, viral_mode, themes, tempo_minimo, tempo_maximo,client,episode,serie):
+def create_viral_segments(num_segments, instructions, tempo_minimo, tempo_maximo,client):
     """
     Analyzes a video transcript to generate prompts for an AI to identify potential viral segments.
 
@@ -110,6 +76,7 @@ def create_viral_segments(num_segments, viral_mode, themes, tempo_minimo, tempo_
         "might go viral on social media platforms. You use factors such as emotional impact, humor, unexpected content, "
         "and relevance to current trends to make your predictions. You return a structured JSON document detailing the "
         "start and end times, description, duration, and a viral score for the potential viral segments."
+        f"Special Instructions MUST FOLLOW ALWAYS: {instructions}"
     )
 
     json_template = '''
@@ -157,7 +124,7 @@ def create_viral_segments(num_segments, viral_mode, themes, tempo_minimo, tempo_
 {system_prompt}{chunk_context_info}
 
 ## INSTRUCTIONS
-1.  Carefully read the provided video transcript below from {serie} {episode} episode, which includes start and end times in milliseconds for each line.
+1.  Carefully read the provided video transcript below, which includes start and end times in milliseconds for each line.
 2.  Your task is to {analysis_type}.
 2a. You **MUST** ignore each episode intro song and do not include it in the segments
 2a. You **MUST** return a list of segments that totals at least **{num_segments}** segments. If you cannot find {num_segments} truly viral segments, you may include high-potential or engaging-but-not-viral segments to meet the segment count.
