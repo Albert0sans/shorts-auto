@@ -203,16 +203,13 @@ def createShortsJob(request):
 
         with temporary_work_dir() as temp_dir:
             
-            required_folders = ['tmp', 'subs', 'subs_ass', 'burned_sub', 'videos']
-                
+            folders=["tmp","burned_sub"]
+            create all folders here
             
             bucket = storage.bucket()
             
             for vid_url in urls:
-                for folder in required_folders:
-                    if os.path.exists(folder):
-                        shutil.rmtree(folder)
-                    os.makedirs(folder, exist_ok=True)
+                
 
                 try:
                     print(f"Downloading: {vid_url}")
