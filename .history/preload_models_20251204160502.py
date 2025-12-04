@@ -12,6 +12,9 @@ import logging
 import sys
 
 import gc
+import time
+import threading
+import shutil
 import torch
 import whisperx
 from faster_whisper import download_model
@@ -28,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 hf_home = os.environ.get("HF_HOME", "/app/cache/huggingface")
 torch_home = os.environ.get("TORCH_HOME", "/app/cache/torch")
+# Configure logging to output to stdout immediately
 
+import shutil
 
 _runtime._is_google_colab = False
 torch.serialization.add_safe_globals([ListConfig, DictConfig])
@@ -36,6 +41,7 @@ torch.serialization.add_safe_globals([ListConfig, DictConfig])
 def preload():
     logger.info("--- Starting Model Preload for Cloud Run ---")
     
+    # 1. Download Transcription Models
     transcription_models = ["tiny", "large-v3-turbo"]
     
     for model_name in transcription_models:
@@ -43,6 +49,7 @@ def preload():
         
         
         try:
+            # Download the model files
             model_path = download_model(model_name)
             logger.info(f"Successfully downloaded {model_name} to {model_path}")
         except Exception as e:
@@ -53,6 +60,7 @@ def preload():
         gc.collect()
 
 
+    # 3. Download Alignment Models
     alignment_languages = ["en", "es"]
     logger.info(f"Downloading alignment models for: {alignment_languages}")
     
@@ -66,6 +74,7 @@ def preload():
 
     logger.info("--- Download Phase Complete. Verifying Cache ---")
     
+    # 4. List Cached Files
 
     logger.info("--- Preload Script Finished Successfully ---")
 
