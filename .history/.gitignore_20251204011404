@@ -7,4 +7,3 @@ venv/
 *.local
 ./history
 test_local.py
-test.mp4
