@@ -12,7 +12,7 @@ from huggingface_hub.utils import _runtime
 hf_home = os.environ.get("HF_HOME", "/app/cache/huggingface")
 torch_home = os.environ.get("TORCH_HOME", "/app/cache/torch")
 # Configure logging to output to stdout immediately
-os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+
 
 import shutil
 
