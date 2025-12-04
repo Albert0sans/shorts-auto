@@ -160,8 +160,10 @@ def createShortsJob(request):
         
         short_build_id = request_json['shortBuildId']
         
-        ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running")
-
+        try:
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running")
+        except Exception as e: 
+            pass 
 
         user_ref = db.collection('users').document(user_id)
         doc_ref = user_ref.collection('generatedShorts').document(short_build_id)

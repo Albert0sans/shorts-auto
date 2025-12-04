@@ -160,8 +160,10 @@ def createShortsJob(request):
         
         short_build_id = request_json['shortBuildId']
         
-        ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running")
-
+        try:
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running")
+        except Exception as e: 
+            pass 
 
         user_ref = db.collection('users').document(user_id)
         doc_ref = user_ref.collection('generatedShorts').document(short_build_id)
@@ -322,7 +324,7 @@ def createShortsJob(request):
                 transaction_refund = db.transaction()
                 refund_credits_transaction(transaction_refund, user_ref, video_credits=total_reserved_videos, image_credits=0, text_credits=0)
                 if short_build_id:
-                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",status_msg=e)
+                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",statusMessage=e)
             except Exception as refund_error:
                 print(f"CRITICAL: Failed to refund credits after error: {refund_error}")
 
