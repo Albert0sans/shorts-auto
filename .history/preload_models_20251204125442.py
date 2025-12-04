@@ -66,7 +66,7 @@ def log_progress(stop_event, model_name):
     """Background thread to log progress every 10 seconds."""
     start_time = time.time()
     while not stop_event.is_set():
-        time.sleep(10)
+        time.sleep(120)
         if not stop_event.is_set():
             elapsed = int(time.time() - start_time)
             logger.info(f"Downloading {model_name}... ({elapsed}s elapsed)")

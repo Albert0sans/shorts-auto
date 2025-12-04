@@ -22,9 +22,12 @@ def get_disk_usage(path='.'):
     for the partition containing the given path.
     """
     try:
-
+        # Get disk usage statistics
+        # The path='.' means the current working directory, 
+        # which usually corresponds to the system drive on most setups.
         total_b, used_b, free_b = shutil.disk_usage(path)
 
+        # Convert bytes to Gigabytes (GB) for readability
         GB = 1024 ** 3
 
         total_gb = total_b / GB
@@ -66,7 +69,7 @@ def log_progress(stop_event, model_name):
     """Background thread to log progress every 10 seconds."""
     start_time = time.time()
     while not stop_event.is_set():
-        time.sleep(10)
+        time.sleep(120)
         if not stop_event.is_set():
             elapsed = int(time.time() - start_time)
             logger.info(f"Downloading {model_name}... ({elapsed}s elapsed)")

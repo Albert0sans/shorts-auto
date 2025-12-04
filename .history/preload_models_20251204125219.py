@@ -12,46 +12,6 @@ from huggingface_hub.utils import _runtime
 hf_home = os.environ.get("HF_HOME", "/app/cache/huggingface")
 torch_home = os.environ.get("TORCH_HOME", "/app/cache/torch")
 # Configure logging to output to stdout immediately
-
-
-import shutil
-
-def get_disk_usage(path='.'):
-    """
-    Retrieves and prints the total, used, and free disk space 
-    for the partition containing the given path.
-    """
-    try:
-
-        total_b, used_b, free_b = shutil.disk_usage(path)
-
-        GB = 1024 ** 3
-
-        total_gb = total_b / GB
-        used_gb = used_b / GB
-        free_gb = free_b / GB
-        
-        # Calculate percentage free
-        free_percent = (free_b / total_b) * 100
-
-        # Print the results
-        print(f"--- Disk Space for '{path}' ---")
-        print(f"Total:  {total_gb:.2f} GB")
-        print(f"Used:   {used_gb:.2f} GB")
-        print(f"**Free:** {free_gb:.2f} GB ({free_percent:.2f}%)")
-        
-        # Return the free size in GB
-        return free_gb
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-# Call the function. 
-# You can specify a different path (e.g., 'C:/', '/home', etc.) 
-# if you want to check a specific drive/partition.
-
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -66,13 +26,12 @@ def log_progress(stop_event, model_name):
     """Background thread to log progress every 10 seconds."""
     start_time = time.time()
     while not stop_event.is_set():
-        time.sleep(10)
+        time.sleep(120)
         if not stop_event.is_set():
             elapsed = int(time.time() - start_time)
             logger.info(f"Downloading {model_name}... ({elapsed}s elapsed)")
             log_directory_contents("HuggingFace Cache", hf_home)
             log_directory_contents("Torch Cache", torch_home)
-            get_disk_usage()
 def log_directory_contents(path_name, path):
     """Logs files and sizes in the given directory."""
     if not path or not os.path.exists(path):
