@@ -32,6 +32,7 @@ def log_progress(stop_event, model_name):
             logger.info(f"Downloading {model_name}... ({elapsed}s elapsed)")
             log_directory_contents("HuggingFace Cache", hf_home)
             log_directory_contents("Torch Cache", torch_home)
+
 def log_directory_contents(path_name, path):
     """Logs files and sizes in the given directory."""
     if not path or not os.path.exists(path):
@@ -87,6 +88,13 @@ def preload():
         
         gc.collect()
 
+    # 2. Download VAD Model
+    logger.info("Downloading VAD (Voice Activity Detection) model...")
+    try:
+        whisperx.vad.load_vad_model("cpu")
+        logger.info("Successfully downloaded VAD model")
+    except Exception as e:
+        logger.error(f"Error downloading VAD model: {e}")
 
     # 3. Download Alignment Models
     alignment_languages = ["en", "es"]
