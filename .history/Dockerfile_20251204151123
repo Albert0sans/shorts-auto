@@ -20,6 +20,7 @@ RUN python3 -m pip install --upgrade pip
 
 ENV HF_HOME="/app/cache/huggingface"
 ENV TORCH_HOME="/app/cache/torch"
+ENV HF_HUB_ENABLE_HF_TRANSFER="0"
 RUN mkdir -p $HF_HOME $TORCH_HOME
 
 COPY requirements.txt .
