@@ -156,6 +156,7 @@ def createShortsJob(request):
     successful_videos = 0
     short_build_id = None
     
+    # Initialize credit cost variable
     shorts_unit_cost = 5 # Default
     
     try:

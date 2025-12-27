@@ -156,6 +156,7 @@ def createShortsJob(request):
     successful_videos = 0
     short_build_id = None
     
+    # Initialize credit cost variable
     shorts_unit_cost = 5 # Default
     
     try:
@@ -194,6 +195,7 @@ def createShortsJob(request):
         watermark_text = gen_request.get('watermarkText', "")
         optional_header = gen_request.get('optional_header', "")
 
+        # 1. Fetch Dynamic Costs
         costs = get_credit_costs(db)
         shorts_unit_cost = costs.get("shorts_generation_cost", 5)
 
@@ -336,6 +338,7 @@ def createShortsJob(request):
 
     except Exception as e:
         print(f"Global Job Failure: {e}")
+        # Refund ALL if catastrophic failure before any partial success could be recorded
         if user_id and total_reserved_videos > 0 and successful_videos == 0:
             try:
                 db = get_db()

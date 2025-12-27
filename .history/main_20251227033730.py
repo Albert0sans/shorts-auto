@@ -8,8 +8,6 @@ from flask import jsonify
 import firebase_admin
 from firebase_admin import credentials, storage, auth, firestore
 
-from scripts.credits_manager import get_credit_costs
-
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={
         'storageBucket': os.environ.get('STORAGE_BUCKET')
@@ -23,6 +21,33 @@ def get_db():
         _db_client = firestore.client()
     return _db_client
 
+def get_credit_costs(db) -> dict:
+    """
+    Fetches the dynamic credit costs from Firestore.
+    Returns default values if the document does not exist.
+    """
+    try:
+        config_ref = db.collection("plan").document("limits")
+        doc = config_ref.get()
+        
+        if doc.exists:
+            return doc.to_dict()
+            
+        # Default fallback values
+        return {
+            "image_generation_cost": 1,
+            "text_generation_cost": 1,
+            "video_generation_cost": 5,
+            "shorts_generation_cost": 5
+        }
+    except Exception as e:
+        print(f"Error fetching credit costs: {e}")
+        return {
+            "image_generation_cost": 1,
+            "text_generation_cost": 1,
+            "video_generation_cost": 5,
+            "shorts_generation_cost": 5
+        }
 
 STYLE_CONFIG = {
     'base_color': '&HFFFFFF&',
@@ -156,6 +181,7 @@ def createShortsJob(request):
     successful_videos = 0
     short_build_id = None
     
+    # Initialize credit cost variable
     shorts_unit_cost = 5 # Default
     
     try:
@@ -194,6 +220,7 @@ def createShortsJob(request):
         watermark_text = gen_request.get('watermarkText', "")
         optional_header = gen_request.get('optional_header', "")
 
+        # 1. Fetch Dynamic Costs
         costs = get_credit_costs(db)
         shorts_unit_cost = costs.get("shorts_generation_cost", 5)
 
@@ -336,6 +363,7 @@ def createShortsJob(request):
 
     except Exception as e:
         print(f"Global Job Failure: {e}")
+        # Refund ALL if catastrophic failure before any partial success could be recorded
         if user_id and total_reserved_videos > 0 and successful_videos == 0:
             try:
                 db = get_db()
