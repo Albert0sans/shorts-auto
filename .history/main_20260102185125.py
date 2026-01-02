@@ -3,12 +3,10 @@ import shutil
 import uuid
 import tempfile
 import contextlib
-import math
 import functions_framework
 from flask import jsonify
 import firebase_admin
 from firebase_admin import credentials, storage, auth, firestore
-from moviepy.editor import VideoFileClip
 
 from scripts.credits_manager import get_credit_costs
 from scripts.notification import NotificationEventType, send_notification
@@ -396,7 +394,7 @@ def createSubtitlesJob(request):
         return jsonify({"error": f"Server Configuration Error: Missing dependency {e}"}), 500, headers
 
     subtitles_build_id = None
-    subtitles_unit_cost = 1
+
     
     try:
         request_json = request.get_json(silent=True)
@@ -430,6 +428,16 @@ def createSubtitlesJob(request):
         costs = get_credit_costs(db)
         subtitles_unit_cost = costs.get("subtitles_generation_cost", 1)
 
+        try:
+            transaction = db.transaction()
+            check_credits_transaction(transaction, user_ref, credits=subtitles_unit_cost)
+        except ValueError as ve:
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed")
+             return jsonify({"error": "Insufficient Credits", "details": str(ve)}), 402, headers
+        except Exception as e:
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed")
+             return jsonify({"error": "Transaction Failed", "details": str(e)}), 500, headers
+
         with temporary_work_dir() as temp_dir:
             bucket = storage.bucket()
             
@@ -444,20 +452,7 @@ def createSubtitlesJob(request):
                     raise FileNotFoundError("Video download failed")
                 
                 shutil.copy2(input_video_path, "tmp/input_video.mp4")
-
-                clip = VideoFileClip("tmp/input_video.mp4")
-                duration_seconds = clip.duration
-                clip.close()
-
-                duration_minutes =  math.ceil(duration_seconds / 60)
-                total_cost = duration_minutes * subtitles_unit_cost
-
-                try:
-                    transaction = db.transaction()
-                    check_credits_transaction(transaction, user_ref, credits=total_cost)
-                except ValueError as ve:
-                    raise ValueError(f"Insufficient credits: {str(ve)}")
-
+                
                 generate_whisperx("tmp/input_video.mp4", 'tmp')
 
                 generated_files = [f for f in os.listdir('tmp') if f.endswith(('.srt', '.vtt', '.json', '.ass'))]
@@ -480,22 +475,21 @@ def createSubtitlesJob(request):
                 }, merge=True)
                 
                 transaction_consume = db.transaction()
-                consume_credits_transaction(transaction_consume, user_ref, credits=total_cost)
+                consume_credits_transaction(transaction_consume, user_ref, credits=subtitles_unit_cost)
 
                 ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="completed")
 
                 return jsonify({
                     "message": "Subtitles Generated",
                     "buildId": subtitles_build_id,
-                    "files": results,
-                    "creditsConsumed": total_cost
+                    "files": results
                 }), 200, headers
 
             except Exception as inner_e:
                 print(f"Error processing subtitles: {inner_e}")
+                transaction_refund = db.transaction()
+                refund_credits_transaction(transaction_refund, user_ref, credits=subtitles_unit_cost)
                 ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg=str(inner_e))
-                if "Insufficient credits" in str(inner_e):
-                    return jsonify({"error": "Insufficient Credits", "details": str(inner_e)}), 402, headers
                 return jsonify({"error": "Processing Failed", "details": str(inner_e)}), 500, headers
 
     except Exception as e:

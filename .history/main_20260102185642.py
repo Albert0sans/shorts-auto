@@ -449,7 +449,7 @@ def createSubtitlesJob(request):
                 duration_seconds = clip.duration
                 clip.close()
 
-                duration_minutes =  math.ceil(duration_seconds / 60)
+                duration_minutes = math.floor(duration_seconds / 60)
                 total_cost = duration_minutes * subtitles_unit_cost
 
                 try:

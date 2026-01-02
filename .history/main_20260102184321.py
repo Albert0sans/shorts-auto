@@ -3,12 +3,10 @@ import shutil
 import uuid
 import tempfile
 import contextlib
-import math
 import functions_framework
 from flask import jsonify
 import firebase_admin
 from firebase_admin import credentials, storage, auth, firestore
-from moviepy.editor import VideoFileClip
 
 from scripts.credits_manager import get_credit_costs
 from scripts.notification import NotificationEventType, send_notification
@@ -159,7 +157,7 @@ def createShortsJob(request):
     successful_videos = 0
     short_build_id = None
     
-    shorts_unit_cost = 5 
+    shorts_unit_cost = 5 # Default
     
     try:
         request_json = request.get_json(silent=True)
@@ -184,6 +182,7 @@ def createShortsJob(request):
         is_valid, error_msg = validate_request_data(gen_request)
         if not is_valid:
             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed")
+            send_notification(db,user_id=user_id,event_type=NotificationEventType.SHORT_FAILED,target_id=short_build_id)
             return jsonify({"error": "Validation Error", "details": error_msg}), 400, headers
 
         input_videos_map = gen_request.get('inputVideo', {})
@@ -205,10 +204,10 @@ def createShortsJob(request):
         
         try:
             transaction = db.transaction()
+            # 2. Check credits using total cost
             check_credits_transaction(transaction, user_ref, credits=total_credit_cost)
         except ValueError as ve:
              ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed")
-             
              return jsonify({"error": "Insufficient Credits", "details": str(ve)}), 402, headers
         except Exception as e:
              ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed")
@@ -303,11 +302,13 @@ def createShortsJob(request):
                 
 
         try:
+            # 3. Consume Credits (Calculated)
             if successful_videos > 0:
                 credits_to_consume = successful_videos * shorts_unit_cost
                 transaction_consume = db.transaction()
                 consume_credits_transaction(transaction_consume, user_ref, credits=credits_to_consume)
             
+            # 4. Refund Credits (Calculated)
             failed_count = total_reserved_videos - successful_videos
             if failed_count > 0:
                 credits_to_refund = failed_count * shorts_unit_cost
@@ -332,8 +333,7 @@ def createShortsJob(request):
         
         if successful_videos != total_reserved_videos:
             response_data["warning"] = "Partial success or failure in some segments."
-            
-        
+
         return jsonify(response_data), 200, headers
 
     except Exception as e:
@@ -350,154 +350,4 @@ def createShortsJob(request):
             except Exception as refund_error:
                 print(f"CRITICAL: Failed to refund credits after error: {refund_error}")
 
-        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500, headers
-
-@functions_framework.http
-def createSubtitlesJob(request):
-    if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Max-Age': '3600'
-        }
-        return ('', 204, headers)
-
-    headers = {'Access-Control-Allow-Origin': '*'}
-
-    user_id = None
-    try:
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({"error": "Missing Authorization header"}), 401, headers
-
-        parts = auth_header.split()
-        if len(parts) < 2 or parts[0].lower() != 'bearer':
-            return jsonify({"error": "Invalid Header Format"}), 401, headers
-
-        token_str = parts[1]
-        decoded_token = auth.verify_id_token(token_str)
-        user_id = decoded_token['uid']
-
-    except Exception as e:
-        return jsonify({"error": "Authentication Failed", "details": str(e)}), 401, headers
-
-    try:
-        db = get_db()
-    except Exception as e:
-        return jsonify({"error": "Database Connection Failed"}), 500, headers
-
-    try:
-        from scripts.change_run_status import ChangeDDBBStatus
-        from scripts.whisper_gen import generate_whisperx
-        from scripts import download_video
-        from scripts.credits_manager import check_credits_transaction, consume_credits_transaction, refund_credits_transaction
-    except ImportError as e:
-        return jsonify({"error": f"Server Configuration Error: Missing dependency {e}"}), 500, headers
-
-    subtitles_build_id = None
-    subtitles_unit_cost = 1
-    
-    try:
-        request_json = request.get_json(silent=True)
-        if not request_json or 'subtitlesBuildId' not in request_json:
-            return jsonify({"error": "Missing subtitlesBuildId parameter"}), 400, headers
-        
-        subtitles_build_id = request_json['subtitlesBuildId']
-        
-        ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="running")
-
-        user_ref = db.collection('users').document(user_id)
-        doc_ref = user_ref.collection('generatedSubtitles').document(subtitles_build_id)
-        doc_snapshot = doc_ref.get()
-
-        if not doc_snapshot.exists:
-            return jsonify({"error": "Build ID not found in database"}), 404, headers
-
-        build_data = doc_snapshot.to_dict()
-        gen_request = build_data.get('genRequest', {})
-        
-        input_video = gen_request.get('inputVideo')
-        if not input_video or not isinstance(input_video, dict) or 'url' not in input_video:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed")
-             return jsonify({"error": "Invalid input video data"}), 400, headers
-
-        vid_url = input_video['url']
-        if not vid_url:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed")
-             return jsonify({"error": "Empty video URL"}), 400, headers
-
-        costs = get_credit_costs(db)
-        subtitles_unit_cost = costs.get("subtitles_generation_cost", 1)
-
-        with temporary_work_dir() as temp_dir:
-            bucket = storage.bucket()
-            
-            if os.path.exists('tmp'):
-                shutil.rmtree('tmp')
-            os.makedirs('tmp', exist_ok=True)
-
-            try:
-                print(f"Downloading for subtitles: {vid_url}")
-                input_video_path = download_video.download(vid_url)
-                if not input_video_path or not os.path.exists(input_video_path):
-                    raise FileNotFoundError("Video download failed")
-                
-                shutil.copy2(input_video_path, "tmp/input_video.mp4")
-
-                clip = VideoFileClip("tmp/input_video.mp4")
-                duration_seconds = clip.duration
-                clip.close()
-
-                duration_minutes =  math.ceil(duration_seconds / 60)
-                total_cost = duration_minutes * subtitles_unit_cost
-
-                try:
-                    transaction = db.transaction()
-                    check_credits_transaction(transaction, user_ref, credits=total_cost)
-                except ValueError as ve:
-                    raise ValueError(f"Insufficient credits: {str(ve)}")
-
-                generate_whisperx("tmp/input_video.mp4", 'tmp')
-
-                generated_files = [f for f in os.listdir('tmp') if f.endswith(('.srt', '.vtt', '.json', '.ass'))]
-                
-                if not generated_files:
-                    raise Exception("Subtitle generation failed, no output files found")
-
-                results = {}
-                for f in generated_files:
-                     blob_path = f"users/{user_id}/generatedSubtitles/{subtitles_build_id}/{f}"
-                     blob = bucket.blob(blob_path)
-                     blob.upload_from_filename(os.path.join('tmp', f))
-                     
-                     file_extension = f.split('.')[-1]
-                     results[file_extension] = blob_path
-
-                doc_ref.set({
-                    "subtitles": results,
-                    "lastUpdatedAt": firestore.SERVER_TIMESTAMP
-                }, merge=True)
-                
-                transaction_consume = db.transaction()
-                consume_credits_transaction(transaction_consume, user_ref, credits=total_cost)
-
-                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="completed")
-
-                return jsonify({
-                    "message": "Subtitles Generated",
-                    "buildId": subtitles_build_id,
-                    "files": results,
-                    "creditsConsumed": total_cost
-                }), 200, headers
-
-            except Exception as inner_e:
-                print(f"Error processing subtitles: {inner_e}")
-                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg=str(inner_e))
-                if "Insufficient credits" in str(inner_e):
-                    return jsonify({"error": "Insufficient Credits", "details": str(inner_e)}), 402, headers
-                return jsonify({"error": "Processing Failed", "details": str(inner_e)}), 500, headers
-
-    except Exception as e:
-        print(f"Global Subtitle Job Failure: {e}")
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500, headers

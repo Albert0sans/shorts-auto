@@ -16,6 +16,6 @@ def ChangeDDBBStatus(db, user_id, short_build_id, new_status, status_msg:str="")
     }, merge=True)
     if(new_status == "failed"):
         send_notification(db,user_id=user_id,event_type=NotificationEventType.SHORT_FAILED,target_id=short_build_id)
-    elif(new_status == "completed"):
+    else:
         send_notification(db,user_id=user_id,event_type=NotificationEventType.SHORT_GENERATED,target_id=short_build_id)
         
