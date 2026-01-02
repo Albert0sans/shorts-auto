@@ -96,7 +96,7 @@ def validate_request_data(data):
 
 @functions_framework.http
 def createShortsJob(request):
-    savingCollection = "generatedShorts"
+    savingCollection= "generatedShorts"
     if request.method == 'OPTIONS':
         headers = {
             'Access-Control-Allow-Origin': '*',
@@ -169,11 +169,11 @@ def createShortsJob(request):
         
         short_build_id = request_json['shortBuildId']
         
-        ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running", collection=savingCollection)
+        ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="running",collection=savingCollection)
 
 
         user_ref = db.collection('users').document(user_id)
-        doc_ref = user_ref.collection(savingCollection).document(short_build_id)
+        doc_ref = user_ref.collection('generatedShorts').document(short_build_id)
         doc_snapshot = doc_ref.get()
 
         if not doc_snapshot.exists:
@@ -184,7 +184,7 @@ def createShortsJob(request):
 
         is_valid, error_msg = validate_request_data(gen_request)
         if not is_valid:
-            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed", status_msg=error_msg, collection=savingCollection)
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",collection=savingCollection))
             return jsonify({"error": "Validation Error", "details": error_msg}), 400, headers
 
         input_videos_map = gen_request.get('inputVideo', {})
@@ -208,11 +208,11 @@ def createShortsJob(request):
             transaction = db.transaction()
             check_credits_transaction(transaction, user_ref, credits=total_credit_cost)
         except ValueError as ve:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed", status_msg=str(ve), collection=savingCollection)
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",collection=savingCollection))
              
              return jsonify({"error": "Insufficient Credits", "details": str(ve)}), 402, headers
         except Exception as e:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed", status_msg=str(e), collection=savingCollection)
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",collection=savingCollection)
              return jsonify({"error": "Transaction Failed", "details": str(e)}), 500, headers
 
         with temporary_work_dir() as temp_dir:
@@ -278,7 +278,7 @@ def createShortsJob(request):
                         if os.path.exists(fpath):
                             unique_id = str(uuid.uuid4())
                             file_name = f"short_{unique_id}.mp4"
-                            blob_path = f"users/{user_id}/{savingCollection}/{short_build_id}/{file_name}"
+                            blob_path = f"users/{user_id}/generatedShorts/{short_build_id}/{file_name}"
                             
                             blob = bucket.blob(blob_path)
                             blob.upload_from_filename(fpath)
@@ -318,8 +318,8 @@ def createShortsJob(request):
             final_status = "completed" if successful_videos == total_reserved_videos else "failed"
             if successful_videos > 0 and successful_videos < total_reserved_videos:
                  final_status = "completed" 
-            failed_message = f"{total_reserved_videos - successful_videos} Failed videos"
-            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status, status_msg=failed_message, collection=savingCollection)
+            failed_message=f"{total_reserved_videos - successful_videos} Failed videos"
+            ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status=final_status,status_msg=failed_message,collection=savingCollection)
 
         except Exception as credit_error:
             return jsonify({"error": "Internal Server Error during Credit Adjustment", "details": str(credit_error)}), 500, headers
@@ -347,7 +347,7 @@ def createShortsJob(request):
                 transaction_refund = db.transaction()
                 refund_credits_transaction(transaction_refund, user_ref, credits=credits_to_refund)
                 if short_build_id:
-                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed", status_msg=str(e), collection=savingCollection)
+                    ChangeDDBBStatus(db, user_id=user_id, short_build_id=short_build_id, new_status="failed",status_msg=str(e),collection=savingCollection)
             except Exception as refund_error:
                 print(f"CRITICAL: Failed to refund credits after error: {refund_error}")
 
@@ -355,7 +355,7 @@ def createShortsJob(request):
 
 @functions_framework.http
 def createSubtitlesJob(request):
-    savingCollection = "generatedSubtitles"
+    savingCollection= "generatedSubtitles"
     if request.method == 'OPTIONS':
         headers = {
             'Access-Control-Allow-Origin': '*',
@@ -407,10 +407,10 @@ def createSubtitlesJob(request):
         
         subtitles_build_id = request_json['subtitlesBuildId']
         
-        ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="running", collection=savingCollection)
+        ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="running",collection=savingCollection)
 
         user_ref = db.collection('users').document(user_id)
-        doc_ref = user_ref.collection(savingCollection).document(subtitles_build_id)
+        doc_ref = user_ref.collection('generatedSubtitles').document(subtitles_build_id)
         doc_snapshot = doc_ref.get()
 
         if not doc_snapshot.exists:
@@ -421,12 +421,12 @@ def createSubtitlesJob(request):
         
         input_video = gen_request.get('inputVideo')
         if not input_video or not isinstance(input_video, dict) or 'url' not in input_video:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg="Invalid input video data", collection=savingCollection)
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed",collection=savingCollection)
              return jsonify({"error": "Invalid input video data"}), 400, headers
 
         vid_url = input_video['url']
         if not vid_url:
-             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg="Empty video URL", collection=savingCollection)
+             ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed",collection=savingCollection)
              return jsonify({"error": "Empty video URL"}), 400, headers
 
         costs = get_credit_costs(db)
@@ -451,7 +451,7 @@ def createSubtitlesJob(request):
                 duration_seconds = clip.duration
                 clip.close()
 
-                duration_minutes = math.ceil(duration_seconds / 60)
+                duration_minutes =  math.ceil(duration_seconds / 60)
                 total_cost = duration_minutes * subtitles_unit_cost
 
                 try:
@@ -469,7 +469,7 @@ def createSubtitlesJob(request):
 
                 results = {}
                 for f in generated_files:
-                     blob_path = f"users/{user_id}/{savingCollection}/{subtitles_build_id}/{f}"
+                     blob_path = f"users/{user_id}/generatedSubtitles/{subtitles_build_id}/{f}"
                      blob = bucket.blob(blob_path)
                      blob.upload_from_filename(os.path.join('tmp', f))
                      
@@ -484,7 +484,7 @@ def createSubtitlesJob(request):
                 transaction_consume = db.transaction()
                 consume_credits_transaction(transaction_consume, user_ref, credits=total_cost)
 
-                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="completed", collection=savingCollection)
+                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="completed",collection=savingCollection)
 
                 return jsonify({
                     "message": "Subtitles Generated",
@@ -495,16 +495,11 @@ def createSubtitlesJob(request):
 
             except Exception as inner_e:
                 print(f"Error processing subtitles: {inner_e}")
-                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg=str(inner_e), collection=savingCollection)
+                ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg=str(inner_e))
                 if "Insufficient credits" in str(inner_e):
                     return jsonify({"error": "Insufficient Credits", "details": str(inner_e)}), 402, headers
                 return jsonify({"error": "Processing Failed", "details": str(inner_e)}), 500, headers
 
     except Exception as e:
         print(f"Global Subtitle Job Failure: {e}")
-        if user_id and subtitles_build_id:
-             try:
-                 ChangeDDBBStatus(db, user_id=user_id, short_build_id=subtitles_build_id, new_status="failed", status_msg=str(e), collection=savingCollection)
-             except Exception:
-                 pass
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500, headers

@@ -2,7 +2,7 @@ from firebase_admin import firestore
 
 from scripts.notification import NotificationEventType, send_notification
 
-def ChangeDDBBStatus(db, user_id, short_build_id, new_status, status_msg:str="",collection:str="generatedShorts"):
+def ChangeDDBBStatus(db, user_id, short_build_id, new_status, status_msg:str="",collection=str="generatedShorts"):
     user_ref = db.collection('users').document(user_id)
     
     doc_ref = user_ref.collection(collection).document(short_build_id)
