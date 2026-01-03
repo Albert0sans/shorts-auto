@@ -391,8 +391,6 @@ def createSubtitlesJob(request):
         from scripts.change_run_status import ChangeDDBBStatus
         from scripts.whisper_gen import generate_whisperx
         from scripts import download_video
-        from scripts.credits_manager import get_credit_costs
-
         from scripts.credits_manager import check_credits_transaction, consume_credits_transaction, refund_credits_transaction
     except ImportError as e:
         return jsonify({"error": f"Server Configuration Error: Missing dependency {e}"}), 500, headers
