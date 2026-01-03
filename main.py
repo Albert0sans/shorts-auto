@@ -4,11 +4,11 @@ import uuid
 import tempfile
 import contextlib
 import math
+import subprocess
 import functions_framework
 from flask import jsonify
 import firebase_admin
 from firebase_admin import credentials, storage, auth, firestore
-from moviepy.editor import VideoFileClip
 
 from scripts.credits_manager import get_credit_costs
 from scripts.notification import NotificationEventType, send_notification
@@ -25,7 +25,6 @@ def get_db():
     if _db_client is None:
         _db_client = firestore.client()
     return _db_client
-
 
 STYLE_CONFIG = {
     'base_color': '&HFFFFFF&',
@@ -447,9 +446,15 @@ def createSubtitlesJob(request):
                 
                 shutil.copy2(input_video_path, "tmp/input_video.mp4")
 
-                clip = VideoFileClip("tmp/input_video.mp4")
-                duration_seconds = clip.duration
-                clip.close()
+                cmd = [
+                    'ffprobe', 
+                    '-v', 'error', 
+                    '-show_entries', 'format=duration', 
+                    '-of', 'default=noprint_wrappers=1:nokey=1', 
+                    "tmp/input_video.mp4"
+                ]
+                process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                duration_seconds = float(process.stdout)
 
                 duration_minutes = math.ceil(duration_seconds / 60)
                 total_cost = duration_minutes * subtitles_unit_cost
