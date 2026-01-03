@@ -33,4 +33,4 @@ RUN pip freeze
 
 ENV PORT=8080
 
-CMD exec functions-framework --target=createShortsJob --source=main.py --port=$PORT
+CMD exec functions-framework --target=router --source=main.py --port=$PORT
