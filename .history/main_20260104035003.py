@@ -212,9 +212,6 @@ def validate_request_data(data):
     if aspect_ratio and aspect_ratio not in ['9:16', '16:9', '1:1', '4:5']:
         return False, f"Unsupported aspect ratio: {aspect_ratio}"
 
-    if 'generateTitle' in data and not isinstance(data['generateTitle'], bool):
-        return False, "generateTitle must be a boolean"
-
     return True, None
 
 def createShortsJob(request):
@@ -312,7 +309,6 @@ def createShortsJob(request):
         instructions = gen_request.get('customPrompt', None)
         watermark_text = gen_request.get('watermarkText', "")
         optional_header = gen_request.get('optional_header', "")
-        generate_title = gen_request.get('generateTitle', False)
 
         costs = get_credit_costs(db)
         shorts_unit_cost = costs.get("shorts_generation_cost", 5)
@@ -361,7 +357,6 @@ def createShortsJob(request):
                         tempo_minimo=min_duration, 
                         tempo_maximo=max_duration, 
                         client=client,
-                        generate_title=generate_title
                     )
                     
                     if not viral_data or "segments" not in viral_data or not viral_data["segments"]:

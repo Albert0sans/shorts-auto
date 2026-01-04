@@ -40,19 +40,16 @@ def burn_with_title_and_channel(
 
     try:
         ar_w, ar_h = map(int, aspect_ratio.split(':'))
-    except ValueError:
+    except (ValueError, AttributeError):
         ar_w, ar_h = 9, 16
 
     def process_video(idx, segment):
-        # Input is now the cut segment in tmp
         video_file_name = f"output{str(idx).zfill(3)}_original_scale.mp4"
         input_path = os.path.join(input_folder, video_file_name)
         
-        # Output filename expected by main.py
         final_output_name = f"final-output{str(idx).zfill(3)}_processed.mp4"
         output_file = os.path.join(output_folder, final_output_name)
         
-        # Ass filename matches the outputXXX naming from transcribe_cuts
         subtitle_file = os.path.join(subs_folder, f"output{str(idx).zfill(3)}_original_scale.ass")
 
         if not os.path.exists(input_path):
@@ -62,7 +59,6 @@ def burn_with_title_and_channel(
         if os.path.exists(output_file):
             return
 
-        # Calculate dimensions
         if ar_w > ar_h: 
             output_h = 1080
             output_w = int(output_h * (ar_w / ar_h))
@@ -73,9 +69,9 @@ def burn_with_title_and_channel(
         if output_w % 2 != 0: output_w += 1
         if output_h % 2 != 0: output_h += 1
 
-        # Build Filters
         bg_filter = f"[0:v]scale={output_w}:{output_h}:force_original_aspect_ratio=increase,crop={output_w}:{output_h},boxblur=luma_radius=150:luma_power=3[bg];"
         fg_filter = f"[0:v]scale={output_w}:{output_h}:force_original_aspect_ratio=decrease[fg];"
+        
         overlay_filter = f"[bg][fg]overlay=(W-w)/2:(H-h)/2[v_base]"
 
         subtitle_filter = ""
@@ -83,18 +79,23 @@ def burn_with_title_and_channel(
             subtitle_file_ffmpeg = subtitle_file.replace('\\', '/')
             subtitle_filter = f",subtitles='{subtitle_file_ffmpeg}'"
 
-        short_title = segment.get("title", "").replace(":", "").replace("'", "''")
+        drawtext_list = []
         
-        drawtext_filters = (
-            f",drawtext=text='{short_title}':fontfile='{font_file}':fontsize=70:fontcolor={font_color}:"
-            f"x={x_pos}:y={y_pos} + {font_size}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset},"
-            f"drawtext=text='{optional_header}':fontfile='{font_file}':fontsize={font_size}:fontcolor={font_color}:"
-            f"x={x_pos}:y={y_pos_opt}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset},"
-            f"drawtext=text='{channel_name}':fontfile='{channel_font_file}':fontsize={channel_font_size}:fontcolor={channel_font_color}:"
-            f"x=(w-text_w)/2:y={y_pos} + {channel_y_offset}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset}"
-        )
+        short_title = segment.get("title", "").replace(":", "").replace("'", "''")
+        if short_title:
+             drawtext_list.append(f"drawtext=text='{short_title}':fontfile='{font_file}':fontsize=70:fontcolor={font_color}:x={x_pos}:y={y_pos} + {font_size}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset}")
 
-        full_filter = f"{bg_filter}{fg_filter}{overlay_filter}[v_base];[v_base]null{drawtext_filters}{subtitle_filter}[v_out]"
+        if optional_header:
+             drawtext_list.append(f"drawtext=text='{optional_header}':fontfile='{font_file}':fontsize={font_size}:fontcolor={font_color}:x={x_pos}:y={y_pos_opt}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset}")
+
+        if channel_name:
+             drawtext_list.append(f"drawtext=text='{channel_name}':fontfile='{channel_font_file}':fontsize={channel_font_size}:fontcolor={channel_font_color}:x=(w-text_w)/2:y={y_pos} + {channel_y_offset}:shadowcolor={shadow_color}:shadowx={shadow_offset}:shadowy={shadow_offset}")
+
+        drawtext_filters = ""
+        if drawtext_list:
+            drawtext_filters = "," + ",".join(drawtext_list)
+
+        full_filter = f"{bg_filter}{fg_filter}{overlay_filter};[v_base]null{drawtext_filters}{subtitle_filter}[v_out]"
 
         command = [
             'ffmpeg', '-y',
@@ -114,7 +115,7 @@ def burn_with_title_and_channel(
             subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
             print(f"Processed: {output_file}")
         except subprocess.CalledProcessError as e:
-            print(f"Failed to process {input_path}:{e}")
+            print(f"Failed to process {input_path}: {e}")
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         for idx, segment in enumerate(segments):

@@ -37,13 +37,9 @@ DEFAULT_STYLE_CONFIG = {
     'palavras_por_bloco': 3,
     'limite_gap': 0.2,
     'negrito': 1,
-    'italico': 0,
-    'sublinhado': 0,
-    'tachado': 0,
-    'estilo_da_borda': 1,
-    'espessura_do_contorno': 1,
-    'tamanho_da_sombra': 0,
-    'uppercase': False
+    'italico':0,
+    'sublinhado':0,
+    'tachado':0,
 }
 
 def hex_to_ass_color(hex_color):
@@ -76,16 +72,6 @@ def get_merged_style_config(user_settings):
         if ass_color:
             config['highlight_color'] = ass_color
 
-    if 'outlineColor' in user_settings:
-        ass_color = hex_to_ass_color(user_settings['outlineColor'])
-        if ass_color:
-            config['contorno'] = ass_color
-
-    if 'shadowColor' in user_settings:
-        ass_color = hex_to_ass_color(user_settings['shadowColor'])
-        if ass_color:
-            config['cor_da_sombra'] = ass_color
-
     if 'fontSize' in user_settings:
         try:
             size = int(user_settings['fontSize'])
@@ -108,54 +94,10 @@ def get_merged_style_config(user_settings):
             config['palavras_por_bloco'] = int(user_settings['wordsPerLine'])
         except (ValueError, TypeError):
             pass
-
-    if 'gapLimit' in user_settings:
-        try:
-            config['limite_gap'] = float(user_settings['gapLimit'])
-        except (ValueError, TypeError):
-            pass
-
-    if 'alignment' in user_settings:
-        try:
-            config['alinhamento'] = int(user_settings['alignment'])
-        except (ValueError, TypeError):
-            pass
-
-    if 'mode' in user_settings:
-        config['modo'] = user_settings['mode']
-
-    if 'isBold' in user_settings:
-        config['negrito'] = 1 if user_settings['isBold'] else 0
-
-    if 'isItalic' in user_settings:
-        config['italico'] = 1 if user_settings['isItalic'] else 0
-
-    if 'isUnderScore' in user_settings:
-        config['sublinhado'] = 1 if user_settings['isUnderScore'] else 0
-
-    if 'isStrikeOut' in user_settings:
-        config['tachado'] = 1 if user_settings['isStrikeOut'] else 0
-
-    if 'borderStyle' in user_settings:
-        try:
-            config['estilo_da_borda'] = int(user_settings['borderStyle'])
-        except (ValueError, TypeError):
-            pass
-
-    if 'outlineWidth' in user_settings:
-        try:
-            config['espessura_do_contorno'] = float(user_settings['outlineWidth'])
-        except (ValueError, TypeError):
-            pass
-
-    if 'shadowSize' in user_settings:
-        try:
-            config['tamanho_da_sombra'] = float(user_settings['shadowSize'])
-        except (ValueError, TypeError):
-            pass
             
-    if 'uppercase' in user_settings:
-        config['uppercase'] = bool(user_settings['uppercase'])
+    if 'fontWeight' in user_settings:
+        val = str(user_settings['fontWeight']).lower()
+        config['negrito'] = 1 if val in ['bold', '700', '800', '900'] else 0
 
     if 'highlightCurrentWord' in user_settings:
         if user_settings['highlightCurrentWord'] is False:
@@ -211,9 +153,6 @@ def validate_request_data(data):
     aspect_ratio = data.get('aspectRatio')
     if aspect_ratio and aspect_ratio not in ['9:16', '16:9', '1:1', '4:5']:
         return False, f"Unsupported aspect ratio: {aspect_ratio}"
-
-    if 'generateTitle' in data and not isinstance(data['generateTitle'], bool):
-        return False, "generateTitle must be a boolean"
 
     return True, None
 
@@ -312,7 +251,6 @@ def createShortsJob(request):
         instructions = gen_request.get('customPrompt', None)
         watermark_text = gen_request.get('watermarkText', "")
         optional_header = gen_request.get('optional_header', "")
-        generate_title = gen_request.get('generateTitle', False)
 
         costs = get_credit_costs(db)
         shorts_unit_cost = costs.get("shorts_generation_cost", 5)
@@ -361,7 +299,6 @@ def createShortsJob(request):
                         tempo_minimo=min_duration, 
                         tempo_maximo=max_duration, 
                         client=client,
-                        generate_title=generate_title
                     )
                     
                     if not viral_data or "segments" not in viral_data or not viral_data["segments"]:
@@ -385,13 +322,8 @@ def createShortsJob(request):
                         current_style_config['fonte'], 
                         current_style_config['contorno'], 
                         current_style_config['cor_da_sombra'], 
-                        current_style_config['negrito'],
-                        current_style_config['italico'],
-                        current_style_config['sublinhado'],
-                        current_style_config['tachado'],
-                        current_style_config['estilo_da_borda'],
-                        current_style_config['espessura_do_contorno'],
-                        current_style_config['tamanho_da_sombra']
+                        current_style_config['negrito'], 
+                        0, 0, 0, 1, 5, 1
                     )
                     
                     burn_subtitles.burn_with_title_and_channel(
@@ -624,12 +556,7 @@ def createSubtitlesJob(request):
                         current_style_config['contorno'], 
                         current_style_config['cor_da_sombra'], 
                         current_style_config['negrito'], 
-                        current_style_config['italico'],
-                        current_style_config['sublinhado'],
-                        current_style_config['tachado'],
-                        current_style_config['estilo_da_borda'],
-                        current_style_config['espessura_do_contorno'],
-                        current_style_config['tamanho_da_sombra']
+                        0, 0, 0, 1, 5, 1
                     )
                     
                     segments=[{"title": ""}]
